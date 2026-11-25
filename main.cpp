@@ -1,10 +1,8 @@
-
-
 #include "SDL_Plotter.h"
 #include "Maze.h"
 #include "Player.h"
 
-int main(){
+int main(int argc, char* argv[]){
     Maze maze;
     if(!maze.load("maze.txt")){
         cout << "Could not load maze.txt - keep it next to the program." << endl;
@@ -13,7 +11,10 @@ int main(){
 
     SDL_Plotter g(maze.getHeightPx(), maze.getWidthPx());
     Player ball(maze.getStart());
+    ball.loadSprite("player.bmp");   // si falla, se queda el círculo amarillo
 
+    if(!maze.loadBackground("maze.bmp"))
+        cout << "No se pudo cargar fondo.bmp" << endl;
     maze.draw(g);
     ball.draw(g);
     g.update();

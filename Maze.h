@@ -1,4 +1,3 @@
-
 #ifndef MAZE_H_
 #define MAZE_H_
 
@@ -12,10 +11,14 @@ class Maze {
 private:
     vector<string> grid;
 
+    vector<color> bg;        // pixeles de la imagen de fondo
+    int bgW = 0, bgH = 0;    // tamaño de la imagen (0 = sin fondo)
+
     char   tileAt(int x, int y) const;        // tile under a pixel
 
 public:
     bool   load(const string& filename);      // false if missing/invalid
+    bool   loadBackground(const string& file);// false si no se pudo cargar el BMP
 
     int    getWidthPx()  const;
     int    getHeightPx() const;
@@ -26,9 +29,9 @@ public:
 
     void   draw(SDL_Plotter& p) const;        // whole maze
     void   redraw(SDL_Plotter& p, int x0, int y0, int x1, int y1) const;
-                                              // repaint a pixel rectangle
+    // repaint a pixel rectangle
 
-    bool   isWall(SDL_Plotter& p, int x, int y) const;  // uses getColor()
+    bool   isWall(SDL_Plotter& p, int x, int y) const;  // uses the grid
     int    getRoomAt(int x, int y) const;     // 1-4 inside a room, else 0
 };
 
