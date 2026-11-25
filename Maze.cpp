@@ -1,20 +1,14 @@
 #include "Maze.h"
 #include <fstream>
+#include <SDL2/SDL.h>
 
 // ---- Colors -------------------------------------------------------------
-// WALL is the only color that blocks the player.
-const color WALL_COLOR (33,  33, 222);
+const color WALL_COLOR (128,  128, 128);
 const color FLOOR_COLOR( 0,   0,   0);
 const color ROOM_COLOR[4] = { color(220,  40,  40),    // room 1 - red
                               color( 30, 170,  60),    // room 2 - green
                               color(150,  60, 210),    // room 3 - purple
                               color(235, 120,   0) };  // room 4 - orange
-
-// Packs a color
-static Uint32 pack(const color& c){
-    return RED_SHIFT * c.R + GREEN_SHIFT * c.G + BLUE_SHIFT * c.B;
-}
-
 
 bool Maze::load(const string& filename){
     ifstream in(filename.c_str());
@@ -33,6 +27,34 @@ bool Maze::load(const string& filename){
         grid.push_back(line);
     }
     return !grid.empty() && hasStart;
+}
+
+// ---- Background image ---------------------------------------------------
+bool Maze::loadBackground(const string& file){
+    SDL_Surface* raw = SDL_LoadBMP(file.c_str());
+    if(!raw){
+        raw = SDL_LoadBMP(("../" + file).c_str());   // mismo respaldo que load()
+        if(!raw) return false;
+    }
+
+    SDL_Surface* s = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_RGBA32, 0);
+    SDL_FreeSurface(raw);
+    if(!s) return false;
+
+    bgW = s->w;
+    bgH = s->h;
+    bg.assign(bgW * bgH, color(0, 0, 0));
+
+    Uint8* base = (Uint8*)s->pixels;
+    for(int j = 0; j < bgH; j++){
+        for(int i = 0; i < bgW; i++){
+            Uint8* q = base + j * s->pitch + i * 4;   // R, G, B, A
+            bg[j * bgW + i] = color(q[0], q[1], q[2]);
+        }
+    }
+
+    SDL_FreeSurface(s);
+    return true;
 }
 
 //  Size / lookups
@@ -75,9 +97,23 @@ void Maze::redraw(SDL_Plotter& p, int x0, int y0, int x1, int y1) const {
     for(int y = y0; y <= y1; y++){
         for(int x = x0; x <= x1; x++){
             char t = tileAt(x, y);
-            if     (t == '#')              p.plotPixel(x, y, WALL_COLOR);
-            else if(t >= '1' && t <= '4')  p.plotPixel(x, y, ROOM_COLOR[t - '1']);
-            else                           p.plotPixel(x, y, FLOOR_COLOR);
+            if(t == '#'){
+                if(bgW > 0){
+                    // pared: píxel de la imagen (escalada al tamaño del maze)
+                    int sx = x * bgW / getWidthPx();
+                    int sy = y * bgH / getHeightPx();
+                    p.plotPixel(x, y, bg[sy * bgW + sx]);
+                }
+                else{
+                    p.plotPixel(x, y, WALL_COLOR);
+                }
+            }
+            else if(t >= '1' && t <= '4'){
+                p.plotPixel(x, y, ROOM_COLOR[t - '1']);
+            }
+            else{
+                p.plotPixel(x, y, FLOOR_COLOR);   // pasillo liso (negro)
+            }
         }
     }
 }
@@ -86,10 +122,8 @@ void Maze::draw(SDL_Plotter& p) const {
     redraw(p, 0, 0, getWidthPx() - 1, getHeightPx() - 1);
 }
 
-// Collision
-// Reads the pixel back from the screen buffer. The top byte is masked off
-// because clear() leaves 0xFF there but plotPixel() leaves it 0.
+// Collision: ahora usa la cuadrícula, no el color de la pantalla,
+// así el fondo no afecta a las colisiones.
 bool Maze::isWall(SDL_Plotter& p, int x, int y) const {
-    if(x < 0 || y < 0 || x >= getWidthPx() || y >= getHeightPx()) return true;
-    return (p.getColor(x, y) & 0xFFFFFF) == pack(WALL_COLOR);
+    return tileAt(x, y) == '#';   // tileAt devuelve '#' fuera del mapa
 }
